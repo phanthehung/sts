@@ -1,5 +1,6 @@
 package com.example.demo;
 
+import org.jooq.DSLContext;
 import org.jooq.SQLDialect;
 import org.jooq.impl.DataSourceConnectionProvider;
 import org.jooq.impl.DefaultConfiguration;
@@ -14,11 +15,18 @@ import org.springframework.core.env.Environment;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.LazyConnectionDataSourceProxy;
 import org.springframework.jdbc.datasource.TransactionAwareDataSourceProxy;
+import org.springframework.lang.Nullable;
+import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 import com.zaxxer.hikari.HikariDataSource;
+import org.springframework.transaction.interceptor.DelegatingTransactionAttribute;
+import org.springframework.transaction.interceptor.TransactionAttribute;
+import org.springframework.transaction.interceptor.TransactionAttributeSource;
+import org.springframework.transaction.interceptor.TransactionProxyFactoryBean;
 
 import javax.sql.DataSource;
+import java.lang.reflect.AnnotatedElement;
 
 @Configuration
 @ComponentScan 
@@ -32,11 +40,11 @@ public class PersistenceContext {
 	@Bean(destroyMethod = "close")
 	public DataSource dataSource() {
 		HikariDataSource dataSource = new HikariDataSource();
-		dataSource.setDriverClassName(env.getRequiredProperty("spring.datasource.driver"));
-		dataSource.setJdbcUrl(env.getRequiredProperty("spring.datasource.url"));
-		dataSource.setUsername(env.getRequiredProperty("spring.datasource.username"));
-		dataSource.setPassword(env.getRequiredProperty("spring.datasource.password"));
-		dataSource.setMaximumPoolSize(Integer.valueOf(env.getRequiredProperty("spring.datasource.maximum-pool-size")));
+		dataSource.setDriverClassName(env.getRequiredProperty("db.driver"));
+		dataSource.setJdbcUrl(env.getRequiredProperty("db.url"));
+		dataSource.setUsername(env.getRequiredProperty("db.username"));
+		dataSource.setPassword(env.getRequiredProperty("db.password"));
+		dataSource.setMaximumPoolSize(Integer.parseInt(env.getRequiredProperty("db.maximum-pool-size")));
 		return dataSource;
 	}
 
@@ -53,6 +61,27 @@ public class PersistenceContext {
 	@Bean
 	public DataSourceTransactionManager transactionManager() {
 		return new DataSourceTransactionManager(lazyConnectionDataSource());
+	}
+
+	@Bean
+	public TransactionAttributeSource transactionAttributeSource() {
+		return new AnnotationTransactionAttributeSource() {
+
+			@Nullable
+			protected TransactionAttribute determineTransactionAttribute(AnnotatedElement element) {
+				TransactionAttribute ta = super.determineTransactionAttribute(element);
+				if (ta == null) {
+					return null;
+				} else {
+					return new DelegatingTransactionAttribute(ta) {
+						@Override
+						public boolean rollbackOn(Throwable ex) {
+							return super.rollbackOn(ex) || ex instanceof Exception;
+						}
+					};
+				}
+			}
+		};
 	}
 
 	@Bean
@@ -79,7 +108,7 @@ public class PersistenceContext {
 	}
 
 	@Bean
-	public DefaultDSLContext dslContext() {
+	public DSLContext dsl() {
 		return new DefaultDSLContext(configuration());
 	}
 }

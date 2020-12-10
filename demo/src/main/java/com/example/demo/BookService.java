@@ -5,6 +5,7 @@ import java.util.List;
 import org.jooq.DSLContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.example.demo.jooq.Tables;
@@ -20,10 +21,10 @@ public class BookService {
 		return context.selectFrom(Tables.BOOK).fetchInto(Book.class);
 	}
 
-	@Transactional
+	@Transactional()
 	public void insertBook(Book book) throws Exception {
-		context.insertInto(Tables.BOOK, Tables.BOOK.AUTHOR, Tables.BOOK.AUTHOR)
+		context.insertInto(Tables.BOOK, Tables.BOOK.TITLE, Tables.BOOK.AUTHOR)
 				.values(book.getTitle(), book.getAuthor()).execute();
-		throw new Exception();
+		throw new Exception("just a test");
 	}
 }
